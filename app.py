@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_cors import CORS
 import os
+import pyodbc   # NUEVO
 
 app = Flask(__name__)
 app.secret_key = "secreto"
@@ -9,18 +10,17 @@ CORS(app)
 # Carpeta del frontend
 FRONTEND_FOLDER = os.path.join(os.path.dirname(__file__), "../frontend")
 
-# Simulación de base de datos
-usuarios = {
-    "fernando": "1234",
-    "maria": "abcd",
-    "juan": "pass123"
-}
+# -------------------------------
+# Conexión a SQL Server  # NUEVO
+# -------------------------------
+conn = pyodbc.connect(
+    "DRIVER={ODBC Driver 17 for SQL Server};"
+    "SERVER=DESKTOP-BM44EOE\SQLEXPRESS;"  # Cambia por tu servidor
+    "DATABASE=ListaTareas;"
+    "Trusted_Connection=yes;"
+)
+cursor = conn.cursor()
 
-tareas = {
-    "fernando": [],
-    "maria": [],
-    "juan": []
-}
 
 @app.route("/")
 def login_page():
@@ -38,9 +38,9 @@ def static_files(archivo):
     return send_from_directory(FRONTEND_FOLDER, archivo)
 
 
-
-# API REST
-
+# -------------------------------
+# API REST con SQL Server
+# -------------------------------
 
 # Registro de usuario
 @app.route("/api/register", methods=["POST"])
@@ -49,11 +49,15 @@ def register():
     username = data.get("username")
     password = data.get("password")
 
-    if username in usuarios:
+    # Verificar usuario existente
+    cursor.execute("SELECT id FROM Usuarios WHERE username = ?", (username,))
+    if cursor.fetchone():
         return jsonify({"success": False, "message": "El usuario ya existe"})
 
-    usuarios[username] = password
-    tareas[username] = []
+    # Insertar usuario nuevo
+    cursor.execute("INSERT INTO Usuarios (username, password) VALUES (?, ?)", (username, password))
+    conn.commit()
+
     return jsonify({"success": True, "message": "Registro exitoso, inicie sesión"})
 
 
@@ -64,11 +68,11 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    if username not in usuarios:
-        return jsonify({"success": False, "message": "Usuario incorrecto"})
+    cursor.execute("SELECT id FROM Usuarios WHERE username = ? AND password = ?", (username, password))
+    user = cursor.fetchone()
 
-    if usuarios[username] != password:
-        return jsonify({"success": False, "message": "Contraseña incorrecta"})
+    if not user:
+        return jsonify({"success": False, "message": "Usuario o contraseña incorrecta"})
 
     session["usuario"] = username
     return jsonify({"success": True, "message": "Login correcto"})
@@ -81,28 +85,44 @@ def manejar_tareas():
     if not usuario:
         return jsonify({"success": False, "message": "No autorizado"})
 
+    # Buscar id del usuario
+    cursor.execute("SELECT id FROM Usuarios WHERE username = ?", (usuario,))
+    user = cursor.fetchone()
+    if not user:
+        return jsonify({"success": False, "message": "Usuario no encontrado"})
+    usuario_id = user[0]
+
     if request.method == "POST":
         data = request.json
         texto = data.get("tarea")
-        id_tarea = len(tareas[usuario])
-        tareas[usuario].append({"id": id_tarea, "texto": texto})
+        cursor.execute("INSERT INTO Tareas (usuario_id, descripcion) VALUES (?, ?)", (usuario_id, texto))
+        conn.commit()
         return jsonify({"success": True})
 
-    # GET
-    return jsonify({"success": True, "tareas": tareas[usuario]})
+    # GET: traer tareas del usuario
+    cursor.execute("SELECT id, descripcion FROM Tareas WHERE usuario_id = ?", (usuario_id,))
+    tareas = [{"id": row[0], "texto": row[1]} for row in cursor.fetchall()]
+    return jsonify({"success": True, "tareas": tareas})
 
 
 # Eliminar tarea
 @app.route("/api/tareas/<int:id>", methods=["DELETE"])
 def eliminar_tarea(id):
     usuario = session.get("usuario")
-    if not usuario or id >= len(tareas[usuario]):
-        return jsonify({"success": False})
-    tareas[usuario].pop(id)
-    # Reindexar IDs
-    for i, t in enumerate(tareas[usuario]):
-        t["id"] = i
-    return jsonify({"success": True})
+    if not usuario:
+        return jsonify({"success": False, "message": "No autorizado"})
+
+    # Buscar id del usuario
+    cursor.execute("SELECT id FROM Usuarios WHERE username = ?", (usuario,))
+    user = cursor.fetchone()
+    if not user:
+        return jsonify({"success": False, "message": "Usuario no encontrado"})
+    usuario_id = user[0]
+
+    # Eliminar tarea
+    cursor.execute("DELETE FROM Tareas WHERE id = ? AND usuario_id = ?", (id, usuario_id))
+    conn.commit()
+    return jsonify({"success": True, "message": "Tarea eliminada"})
 
 
 if __name__ == "__main__":
