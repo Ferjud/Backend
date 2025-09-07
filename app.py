@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_cors import CORS
 import os
-import pyodbc   # NUEVO
+import pyodbc
 
 app = Flask(__name__)
 app.secret_key = "secreto"
@@ -10,9 +10,9 @@ CORS(app)
 # Carpeta del frontend
 FRONTEND_FOLDER = os.path.join(os.path.dirname(__file__), "../frontend")
 
-# -------------------------------
-# Conexión a SQL Server  # NUEVO
-# -------------------------------
+
+# Conexión a SQL Server
+
 conn = pyodbc.connect(
     "DRIVER={ODBC Driver 17 for SQL Server};"
     "SERVER=DESKTOP-BM44EOE\SQLEXPRESS;"  
@@ -38,9 +38,9 @@ def static_files(archivo):
     return send_from_directory(FRONTEND_FOLDER, archivo)
 
 
-# -------------------------------
+
 # API REST con SQL Server
-# -------------------------------
+
 
 # Registro de usuario
 @app.route("/api/register", methods=["POST"])
