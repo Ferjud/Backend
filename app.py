@@ -15,7 +15,7 @@ FRONTEND_FOLDER = os.path.join(os.path.dirname(__file__), "../frontend")
 # -------------------------------
 conn = pyodbc.connect(
     "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=DESKTOP-BM44EOE\SQLEXPRESS;"  # Cambia por tu servidor
+    "SERVER=DESKTOP-BM44EOE\SQLEXPRESS;"  
     "DATABASE=ListaTareas;"
     "Trusted_Connection=yes;"
 )
@@ -75,7 +75,7 @@ def login():
         return jsonify({"success": False, "message": "Usuario o contraseña incorrecta"})
 
     session["usuario"] = username
-    return jsonify({"success": True, "message": "Login correcto"})
+    return jsonify({"success": True})
 
 
 # Obtener / agregar tareas
@@ -122,7 +122,7 @@ def eliminar_tarea(id):
     # Eliminar tarea
     cursor.execute("DELETE FROM Tareas WHERE id = ? AND usuario_id = ?", (id, usuario_id))
     conn.commit()
-    return jsonify({"success": True, "message": "Tarea eliminada"})
+    return jsonify({"success": True})
 
 
 if __name__ == "__main__":
