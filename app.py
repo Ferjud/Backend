@@ -78,6 +78,13 @@ def login():
     return jsonify({"success": True})
 
 
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.pop("usuario", None)  # Elimina la sesión del usuario
+    return jsonify({"success": True})
+
+
+
 # Obtener / agregar tareas
 @app.route("/api/tareas", methods=["GET", "POST"])
 def manejar_tareas():
